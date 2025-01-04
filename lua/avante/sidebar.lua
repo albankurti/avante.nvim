@@ -193,6 +193,15 @@ local function transform_result_content(selected_files, result_content, prev_fil
     end
     if line_content == "<SEARCH>" then
       is_searching = true
+      local prev_line = result_lines[i - 1]
+      if
+        prev_line
+        and prev_filepath
+        and not prev_line:match("Filepath:.+")
+        and not prev_line:match("<FILEPATH>.+</FILEPATH>")
+      then
+        table.insert(transformed_lines, string.format("Filepath: %s", prev_filepath))
+      end
       local next_line = result_lines[i + 1]
       if next_line and next_line:match("^%s*```%w+$") then i = i + 1 end
       search_start = i + 1
@@ -230,6 +239,14 @@ local function transform_result_content(selected_files, result_content, prev_fil
           end
         end
         ::continue1::
+      end
+
+      -- when the filetype isn't detected, fallback to matching based on filepath.
+      -- can happen if the llm tries to edit or create a file outside of it's context.
+      if not match_filetype then
+        local snippet_file_path = current_filepath or prev_filepath
+        local snippet_file_type = vim.filetype.match({ filename = snippet_file_path }) or "unknown"
+        match_filetype = snippet_file_type
       end
 
       local search_start_tag_idx_in_transformed_lines = 0
@@ -430,7 +447,8 @@ local function ensure_snippets_no_overlap(snippets_map)
     table.sort(snippets, function(a, b) return a.range[1] < b.range[1] end)
 
     local original_content = ""
-    if Utils.file.exists(filepath) then original_content = Utils.file.read_content(filepath) or "" end
+    local file_exists = Utils.file.exists(filepath)
+    if file_exists then original_content = Utils.file.read_content(filepath) or "" end
 
     local original_lines = vim.split(original_content, "\n")
 
@@ -438,6 +456,10 @@ local function ensure_snippets_no_overlap(snippets_map)
     local last_end_line = 0
     for _, snippet in ipairs(snippets) do
       if snippet.range[1] > last_end_line then
+        table.insert(new_snippets, snippet)
+        last_end_line = snippet.range[2]
+      elseif not file_exists and #snippets <= 1 then
+        -- if the file doesn't exist, and we only have 1 snippet, then we don't have to check for overlaps.
         table.insert(new_snippets, snippet)
         last_end_line = snippet.range[2]
       else
@@ -1793,6 +1815,13 @@ function Sidebar:create_input_container(opts)
           command = "file",
           details = "add files...",
           callback = function() self.file_selector:open() end,
+        })
+
+        table.insert(mentions, {
+          description = "quickfix",
+          command = "quickfix",
+          details = "add files in quickfix list to chat context",
+          callback = function() self.file_selector:add_quickfix_files() end,
         })
 
         cmp.register_source(
