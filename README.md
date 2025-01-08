@@ -49,7 +49,7 @@ For building binary if you wish to build from source, then `cargo` is required. 
   "yetone/avante.nvim",
   event = "VeryLazy",
   lazy = false,
-  version = false, -- set this if you want to always pull the latest change
+  version = false, -- set this to "*" if you want to always pull the latest change, false to update on release
   opts = {
     -- add any opts here
   },
@@ -319,6 +319,62 @@ _See [config.lua#L9](./lua/avante/config.lua) for the full config_
   },
 }
 ```
+## Blink.cmp users
+For blink cmp users (nvim-cmp alternative) view below instruction for configuration
+This is acheived but emulating nvim-cmp using blink.compat
+<details>
+  <summary>Lua</summary>
+
+```lua
+      file_selector = {
+        --- @alias FileSelectorProvider "native" | "fzf" | "telescope" | string
+        provider = "fzf",
+        -- Options override for custom providers
+        provider_opts = {},
+      }
+```
+Choose a selector other that native, the default as that currently has an issue
+For lazyvim users copy the full config for blink.cmp from the website or extend the options
+```lua
+      compat = {
+        "avante_commands",
+        "avante_mentions",
+        "avante_files",
+      }
+```
+For other users just add a custom provider
+```lua
+      default = {
+        ...
+        "avante_commands",
+        "avante_mentions",
+        "avante_files",
+      }
+```
+```lua
+      providers = {
+        avante_commands = {
+          name = "avante_commands",
+          module = "blink.compat.source",
+          score_offset = 90, -- show at a higher priority than lsp
+          opts = {},
+        },
+        avante_files = {
+          name = "avante_commands",
+          module = "blink.compat.source",
+          score_offset = 100, -- show at a higher priority than lsp
+          opts = {},
+        },
+        avante_mentions = {
+          name = "avante_mentions",
+          module = "blink.compat.source",
+          score_offset = 1000, -- show at a higher priority than lsp
+          opts = {},
+        }
+        ...
+    }
+```
+</details>
 
 ## Usage
 

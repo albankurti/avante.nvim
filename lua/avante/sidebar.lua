@@ -133,6 +133,13 @@ function Sidebar:focus()
   return false
 end
 
+function Sidebar:focus_input()
+  if self.input_container and self.input_container.winid and api.nvim_win_is_valid(self.input_container.winid) then
+    api.nvim_set_current_win(self.input_container.winid)
+    api.nvim_feedkeys("i", "n", false)
+  end
+end
+
 function Sidebar:is_open()
   return self.result_container
     and self.result_container.bufnr
@@ -669,9 +676,7 @@ function Sidebar:apply(current_cursor)
     selected_snippets_map = all_snippets_map
   end
 
-  if Config.options.behaviour.minimize_diff then
-    selected_snippets_map = self:minimize_snippets(selected_snippets_map)
-  end
+  if Config.behaviour.minimize_diff then selected_snippets_map = self:minimize_snippets(selected_snippets_map) end
 
   vim.defer_fn(function()
     api.nvim_set_current_win(self.code.winid)
@@ -1110,13 +1115,13 @@ function Sidebar:refresh_winids()
       { "n", "i" },
       Config.mappings.sidebar.switch_windows,
       function() switch_windows() end,
-      { buffer = buf, noremap = true, silent = true }
+      { buffer = buf, noremap = true, silent = true, nowait = true }
     )
     Utils.safe_keymap_set(
       { "n", "i" },
       Config.mappings.sidebar.reverse_switch_windows,
       function() reverse_switch_windows() end,
-      { buffer = buf, noremap = true, silent = true }
+      { buffer = buf, noremap = true, silent = true, nowait = true }
     )
   end
 end
@@ -1325,13 +1330,15 @@ function Sidebar:render_history_content(history)
       goto continue
     end
     local selected_filepaths = entry.selected_filepaths
-    if not selected_filepaths then selected_filepaths = { entry.selected_file.filepath } end
+    if not selected_filepaths and entry.selected_file ~= nil then
+      selected_filepaths = { entry.selected_file.filepath }
+    end
     local prefix = render_chat_record_prefix(
       entry.timestamp,
       entry.provider,
       entry.model,
       entry.request or "",
-      selected_filepaths,
+      selected_filepaths or {},
       entry.selected_code
     )
     content = content .. prefix
@@ -1387,10 +1394,16 @@ function Sidebar:clear_history(args, cb)
   if next(chat_history) ~= nil then
     chat_history = {}
     Path.history.save(self.code.bufnr, chat_history)
-    self:update_content("Chat history cleared", { focus = false, scroll = false })
+    self:update_content(
+      "Chat history cleared",
+      { focus = false, scroll = false, callback = function() self:focus_input() end }
+    )
     if cb then cb(args) end
   else
-    self:update_content("Chat history is already empty", { focus = false, scroll = false })
+    self:update_content(
+      "Chat history is already empty",
+      { focus = false, scroll = false, callback = function() self:focus_input() end }
+    )
   end
 end
 
@@ -1410,10 +1423,17 @@ function Sidebar:reset_memory(args, cb)
     })
     Path.history.save(self.code.bufnr, chat_history)
     local history_content = self:render_history_content(chat_history)
-    self:update_content(history_content, { focus = false, scroll = true })
+    self:update_content(history_content, {
+      focus = false,
+      scroll = true,
+      callback = function() self:focus_input() end,
+    })
     if cb then cb(args) end
   else
-    self:update_content("Chat history is already empty", { focus = false, scroll = false })
+    self:update_content(
+      "Chat history is already empty",
+      { focus = false, scroll = false, callback = function() self:focus_input() end }
+    )
   end
 end
 
